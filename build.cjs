@@ -5,8 +5,7 @@ const path = require('node:path');
 const {execFileSync} = require('node:child_process');
 
 const root = __dirname;
-const baseline = 'e44c056dbdd8619525fdb90a69a53bddb034130f';
-const repository = 'https://github.com/luigy-lemon/atmosphere-theme';
+const baseline = '5052717b1d436b385d01f067976c2362fb401c08';
 function git(directory, ...args) {
   return execFileSync('git', ['-C', directory, ...args], {encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe']}).trim();
 }
@@ -15,7 +14,7 @@ async function main() {
   if (args.length !== 2 || args[0] !== '--runtime' || !args[1]) throw Error('Usage: npm run build -- --runtime /path/to/cleanyourtv-webos');
   const runtime = fs.realpathSync(args[1]);
   try { git(runtime, 'merge-base', '--is-ancestor', baseline, 'HEAD'); }
-  catch { throw Error('Runtime must descend from Clean Your TV webOS v1.7.1 (' + baseline + ')'); }
+  catch { throw Error('Runtime must descend from the weather-capable Clean Your TV Home source (' + baseline + ')'); }
   if (git(root, 'status', '--porcelain')) throw Error('Commit source changes before building; generated dist/ is ignored.');
   const commit = git(root, 'rev-parse', 'HEAD');
   const {readLocal} = require(path.join(runtime, 'scripts/check-theme-submissions.cjs'));
@@ -31,11 +30,13 @@ async function main() {
   }
   readSource('build.cjs', 65536);
   const manifest = JSON.parse(readSource('theme.json', 65536));
+  const repository = 'https://github.com/' + manifest.id.split(':')[1];
+  const minimumHomeVersion = require(path.join(runtime, 'launcher/appinfo.json')).version;
   const result = await compileSource({
     manifest,
     css: readSource('theme.css', 131072).toString('utf8'),
     source: {repository, commit},
-    minimumHomeVersion: '1.7.0',
+    minimumHomeVersion,
     assets: manifest.assets.map(asset => ({...asset, data: readSource(asset.path, 2097152)})),
     documents: [...new Set([manifest.license.textPath, manifest.license.creditsPath])].map(name => ({path: name, data: readSource(name, 32768)}))
   });
@@ -43,7 +44,7 @@ async function main() {
   const files = [{path: result.manifest.rules.path, data: Buffer.from(JSON.stringify(result.rules) + '\n')}, ...result.assets, ...result.documents];
   const envelope = {schemaVersion: 1, descriptor: descriptor.toString('base64'), files: {}};
   for (const file of files) envelope.files[file.path] = Buffer.from(file.data).toString('base64');
-  data.verify(data.unpackEnvelope(envelope, '1.7.0'), '1.7.0');
+  data.verify(data.unpackEnvelope(envelope, minimumHomeVersion), minimumHomeVersion);
 
   const stage = fs.mkdtempSync(path.join(root, '.dist-build-'));
   const output = path.join(root, 'dist');

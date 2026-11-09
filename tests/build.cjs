@@ -29,9 +29,12 @@ try {
   assert.deepEqual(fs.readFileSync(packagePath), first, 'identical committed source produces identical bytes');
   const envelope = JSON.parse(first);
   const data = require(path.join(path.resolve(runtime), 'launcher/theme-data.js'));
-  const manifest = data.verify(data.unpackEnvelope(envelope, '1.7.0'), '1.7.0').manifest;
+  const homeVersion=require(path.join(path.resolve(runtime),'launcher/appinfo.json')).version;
+  const manifest = data.verify(data.unpackEnvelope(envelope, homeVersion), homeVersion).manifest;
   assert.equal(manifest.source.commit, git('rev-parse', 'HEAD'), 'source provenance is the actual theme commit');
-  assert.equal(manifest.id, 'github:luigy-lemon/atmosphere-theme:atmosphere');
+  assert.equal(manifest.id, JSON.parse(fs.readFileSync(path.join(root,'theme.json'))).id);
+  assert.deepEqual(manifest.layout.weather.formats, []);
+  assert(manifest.requires.capabilities.includes('weather-v1')); 
 
   fs.appendFileSync(path.join(fixture, 'theme.css'), '\n.ctv-home { color: red; }\n');
   result = build();
